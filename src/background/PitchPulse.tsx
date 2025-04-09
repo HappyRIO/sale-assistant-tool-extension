@@ -10,7 +10,7 @@ const metrics = [
 
 const PitchPulse = () => {
   return (
-    <div className="w-80 bg-zinc-800 p-4 rounded-xl shadow-lg">
+    <div className="w-full bg-zinc-800 p-4 rounded-xl shadow-lg h-screen ">
       <h2 className="text-xl font-semibold mb-4 text-center">PitchPulse</h2>
 
       <div className="space-y-2 mb-4">
