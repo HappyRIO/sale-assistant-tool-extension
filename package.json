@@ -30,6 +30,7 @@
   "dependencies": {
     "autoprefixer": "^10.4.17",
     "axios": "^1.8.4",
+    "lucide-react": "^0.488.0",
     "postcss": "^8.4.35",
     "postcss-loader": "^8.1.0",
     "react-router-dom": "6.2",

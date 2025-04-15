@@ -17,9 +17,9 @@ const MetricsDisplay: React.FC<MetricsProps> = ({ data }) => {
   return (
     <div className="text-white">
       {/* Scores Section */}
-      <div className="space-y-4 mb-6">
+      <div className="space-y-1 mb-2">
         {metrics.map((item) => (
-          <div key={item.label}>
+          <div key={item.label} className=" first:border-t first:border-zinc-700">
             <div className="text-base font-medium mb-1">{item.label}</div>
             <div className="w-full h-2 bg-zinc-700 rounded overflow-hidden">
               <div
@@ -32,18 +32,18 @@ const MetricsDisplay: React.FC<MetricsProps> = ({ data }) => {
       </div>
 
       {/* Summary Section */}
-      <div className="border-t border-zinc-700 pt-4">
-        <h3 className="font-semibold text-xl mb-4">Pitch Assist</h3>
-        <p className="text-base text-gray-300 mb-1">
+      <div className="border-t border-zinc-700 pt-1">
+        <h3 className="font-semibold text-xl mb-2">Pitch Assist</h3>
+        <p className="text-base text-gray-300">
           <strong>Problem:</strong> {data.summary.problem}
         </p>
-        <p className="text-base text-gray-300 mb-1">
+        <p className="text-base text-gray-300">
           <strong>Urgency:</strong> {data.summary.urgency}
         </p>
-        <p className="text-base text-gray-300 mb-1">
+        <p className="text-base text-gray-300">
           <strong>Goals:</strong> {data.summary.goals}
         </p>
-        <p className="text-base text-gray-300 mb-1">
+        <p className="text-base text-gray-300">
           <strong>Solution Awareness:</strong> {data.summary.solution_awareness}
         </p>
         <p className="text-base text-gray-300">
