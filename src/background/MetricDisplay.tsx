@@ -11,7 +11,10 @@ const MetricsDisplay: React.FC<MetricsProps> = ({ data }) => {
     { label: "Goals", value: data.scores.goals },
     { label: "Urgency", value: data.scores.urgency },
     { label: "Solution Awareness", value: data.scores.solution_awareness },
-    { label: "Financial Qualification", value: data.scores.financial_qualification },
+    {
+      label: "Financial Qualification",
+      value: data.scores.financial_qualification,
+    },
   ];
 
   return (
@@ -19,11 +22,17 @@ const MetricsDisplay: React.FC<MetricsProps> = ({ data }) => {
       {/* Scores Section */}
       <div className="space-y-1 mb-2">
         {metrics.map((item) => (
-          <div key={item.label} className=" first:border-t first:border-zinc-700">
-            <div className="text-base font-medium mb-1">{item.label}</div>
+          <div
+            key={item.label}
+            className=" first:border-t first:border-zinc-700"
+          >
+            <div className="flex justify-between items-center mb-1">
+              <div className="text-base font-medium">{item.label}</div>
+              <div className="text-base font-medium">{item.value}%</div>
+            </div>
             <div className="w-full h-2 bg-zinc-700 rounded overflow-hidden">
               <div
-                className="h-full bg-blue-500 rounded transition-all duration-500 ease-out"
+                className="h-full bg-blue-500 rounded transition-all duration-1000 ease-out"
                 style={{ width: `${item.value}%` }}
               />
             </div>
@@ -47,7 +56,8 @@ const MetricsDisplay: React.FC<MetricsProps> = ({ data }) => {
           <strong>Solution Awareness:</strong> {data.summary.solution_awareness}
         </p>
         <p className="text-base text-gray-300">
-          <strong>Financial Qualification:</strong> {data.summary.financial_qualification}
+          <strong>Financial Qualification:</strong>{" "}
+          {data.summary.financial_qualification}
         </p>
       </div>
     </div>

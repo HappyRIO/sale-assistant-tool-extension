@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { LogOut } from "lucide-react";
 import MetricsDisplay from "./MetricDisplay";
+import Logo from "./Logo";
 
 export interface Metrics {
   summary: {
@@ -20,24 +21,26 @@ export interface Metrics {
   };
 }
 
+const initMetrics = {
+  summary: {
+    problem: "",
+    goals: "",
+    urgency: "",
+    solution_awareness: "",
+    financial_qualification: "",
+  },
+  scores: {
+    problem: 0,
+    goals: 0,
+    urgency: 0,
+    solution_awareness: 0,
+    financial_qualification: 0,
+  },
+}
+
 const PitchPulse = () => {
   const [meetingUrl, setMeetingUrl] = React.useState("");
-  const [metrics, setMetrics] = React.useState<Metrics>({
-    summary: {
-      problem: "",
-      goals: "",
-      urgency: "",
-      solution_awareness: "",
-      financial_qualification: "",
-    },
-    scores: {
-      problem: 0,
-      goals: 0,
-      urgency: 0,
-      solution_awareness: 0,
-      financial_qualification: 0,
-    },
-  });
+  const [metrics, setMetrics] = React.useState<Metrics>(initMetrics);
   const socketRef = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isJoined, setIsJoined] = useState(false);
@@ -50,7 +53,7 @@ const PitchPulse = () => {
 
   const initWebSocket = () => {
     socketRef.current = new WebSocket(
-      "wss://2227-45-126-3-252.ngrok-free.app/ws"
+      "wss://0c6c-45-126-3-252.ngrok-free.app/ws"
     );
 
     socketRef.current.onopen = () => {
@@ -59,7 +62,19 @@ const PitchPulse = () => {
 
     socketRef.current.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      setMetrics(data);
+      if (data.event == "bot.call_ended") {
+        setIsLoading(true);
+        setIsJoined(false);
+        closeWebSocket();
+        setTimeout(() => {
+          setIsLoading(false);
+        }, 1000);
+        console.log("Bot call ended", data.data);
+      } else if (data.event == "transcript.data") {
+        const parsedData = JSON.parse(data.data);
+        console.log("Transcript data:", parsedData);
+        setMetrics(parsedData);
+      }
       console.log(data);
     };
 
@@ -88,9 +103,10 @@ const PitchPulse = () => {
     }
 
     setIsLoading(true);
+    setMetrics(initMetrics);
 
     const response = axios
-      .post("https://2227-45-126-3-252.ngrok-free.app/join-meeting", {
+      .post("https://0c6c-45-126-3-252.ngrok-free.app/join-meeting", {
         url: meetingUrl,
       })
       .then((response) => {
@@ -112,7 +128,7 @@ const PitchPulse = () => {
     if (isJoined) {
       setIsLoading(true);
       const response = axios
-        .post("https://2227-45-126-3-252.ngrok-free.app/leave-meeting", {
+        .post("https://0c6c-45-126-3-252.ngrok-free.app/leave-meeting", {
           id: botId,
         })
         .then((response) => {
@@ -131,7 +147,9 @@ const PitchPulse = () => {
 
   return (
     <div className="w-full h-full min-h-screen bg-zinc-800 p-4 rounded-xl shadow-lg">
-      <h2 className="text-3xl font-semibold mb-2 text-center">PitchPulse</h2>
+      <div className="flex justify-center items-center">
+        <Logo />
+      </div>
       {isJoined && (
         <button
           onClick={leaveMeeting}

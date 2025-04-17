@@ -1,24 +1,21 @@
-import React from 'react'
+import React from "react";
 
-import MainPage from './MainPage'
+import Login from "./Login";
 // import Navbar from './Navbar'
-import PitchPulse from './PitchPulse';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-
-
+import PitchPulse from "./PitchPulse";
+import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 
 const SidePanel = () => {
   return (
     <div>
       <Router>
-      {/* <Navbar /> */}
+        {/* <Navbar /> */}
         <Routes>
-        <Route path="/*" element={<MainPage />} />
-        <Route path="/tabone" element={<PitchPulse/>} />
+          <Route path="/*" element={<Login />} />
+          <Route path="/analytics" element={<PitchPulse />} />
         </Routes>
-        {/* Add more routes for other pages */}
-    </Router>
+      </Router>
     </div>
-  )
-}
-export default SidePanel
+  );
+};
+export default SidePanel;
