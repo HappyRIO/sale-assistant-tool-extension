@@ -36,15 +36,29 @@ const initMetrics = {
     solution_awareness: 0,
     financial_qualification: 0,
   },
-}
+};
 
 const PitchPulse = () => {
-  const [meetingUrl, setMeetingUrl] = React.useState("");
-  const [metrics, setMetrics] = React.useState<Metrics>(initMetrics);
-  const socketRef = useRef(null);
+  const [meetingUrl, setMeetingUrl] = useState("");
+  const [metrics, setMetrics] = useState<Metrics>(initMetrics);
+  const socketRef = useRef<WebSocket | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isJoined, setIsJoined] = useState(false);
   const [botId, setBotId] = useState("");
+
+  const [apiUrl, setApiUrl] = useState("");
+  const [webSockedUrl, setWebSocketUrl] = useState("");
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    fetch(chrome.runtime.getURL("config.json"))
+      .then((res) => res.json())
+      .then((config) => {
+        setApiUrl(config.API_URL);
+        setWebSocketUrl(config.WEBSOCKET_URL);
+      });
+  }, []);
 
   const isValidZoomUrl = (url: string) => {
     const regex = /^https:\/\/([\w.-]+)?zoom\.us\/[jw]\/\d+(\?pwd=[\w.-]+)?$/;
@@ -52,17 +66,17 @@ const PitchPulse = () => {
   };
 
   const initWebSocket = () => {
-    socketRef.current = new WebSocket(
-      "wss://0c6c-45-126-3-252.ngrok-free.app/ws"
-    );
+    if (!webSockedUrl) return;
+    socketRef.current = new WebSocket(`${webSockedUrl}/ws`);
 
     socketRef.current.onopen = () => {
       console.log("WebSocket connection established.");
+      setIsSocketConnected(true);
     };
 
     socketRef.current.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      if (data.event == "bot.call_ended") {
+      if (data.event === "bot.call_ended") {
         setIsLoading(true);
         setIsJoined(false);
         closeWebSocket();
@@ -70,16 +84,22 @@ const PitchPulse = () => {
           setIsLoading(false);
         }, 1000);
         console.log("Bot call ended", data.data);
-      } else if (data.event == "transcript.data") {
+      } else if (data.event === "transcript.data") {
         const parsedData = JSON.parse(data.data);
         console.log("Transcript data:", parsedData);
         setMetrics(parsedData);
+      } else if (data.event === "transcript.processing") {
+        setIsReady(true);
+        console.log("Bot call started", data.data);
+      } else if (data.event === "bot.in_call_not_recording") {
+        setIsReady(false);
+        console.log("Bot in call but not recording", data.data);
       }
-      console.log(data);
     };
 
     socketRef.current.onclose = () => {
       console.log("WebSocket connection closed.");
+      setIsSocketConnected(false);
     };
   };
 
@@ -87,7 +107,14 @@ const PitchPulse = () => {
     if (socketRef.current) {
       socketRef.current.close();
       socketRef.current = null;
+      setIsSocketConnected(false);
       console.log("WebSocket connection closed manually.");
+    }
+  };
+
+  const reconnectWebSocket = () => {
+    if (!isSocketConnected && isJoined) {
+      initWebSocket();
     }
   };
 
@@ -105,10 +132,8 @@ const PitchPulse = () => {
     setIsLoading(true);
     setMetrics(initMetrics);
 
-    const response = axios
-      .post("https://0c6c-45-126-3-252.ngrok-free.app/join-meeting", {
-        url: meetingUrl,
-      })
+    axios
+      .post(`${apiUrl}/join-meeting`, { url: meetingUrl })
       .then((response) => {
         console.log(response.data);
         setBotId(response.data.bot_id);
@@ -116,9 +141,7 @@ const PitchPulse = () => {
         setMeetingUrl("");
         initWebSocket();
       })
-      .catch((error) => {
-        console.error(error);
-      })
+      .catch((error) => console.error(error))
       .finally(() => {
         setIsLoading(false);
       });
@@ -127,18 +150,14 @@ const PitchPulse = () => {
   const leaveMeeting = () => {
     if (isJoined) {
       setIsLoading(true);
-      const response = axios
-        .post("https://0c6c-45-126-3-252.ngrok-free.app/leave-meeting", {
-          id: botId,
-        })
+      axios
+        .post(`${apiUrl}/leave-meeting`, { id: botId })
         .then((response) => {
           console.log(response.data);
           setIsJoined(false);
           closeWebSocket();
         })
-        .catch((error) => {
-          console.error(error);
-        })
+        .catch((error) => console.error(error))
         .finally(() => {
           setIsLoading(false);
         });
@@ -146,10 +165,37 @@ const PitchPulse = () => {
   };
 
   return (
-    <div className="w-full h-full min-h-screen bg-zinc-800 p-4 rounded-xl shadow-lg">
+    <div className="w-full h-full min-h-screen bg-zinc-800 p-4 rounded-xl shadow-lg relative">
+      {/* Status Light */}
+      <div
+        className="absolute top-4 left-4 flex flex-col items-center gap-1 cursor-pointer"
+        onClick={reconnectWebSocket}
+      >
+        <div
+          className={`w-4 h-4 rounded-full animate-pulse shadow-md ${
+            isSocketConnected
+              ? isReady
+                ? "bg-green-600"
+                : "bg-yellow-400"
+              : "bg-red-600"
+          }`}
+          title={
+            isSocketConnected
+              ? isReady
+                ? "Ready"
+                : "WebSocket Connected"
+              : "WebSocket Disconnected (click to reconnect)"
+          }
+        />
+        <span className="text-xs text-white">
+          {isSocketConnected ? (isReady ? "Ready" : "Conn.") : "Disc."}
+        </span>
+      </div>
+
       <div className="flex justify-center items-center">
         <Logo />
       </div>
+
       {isJoined && (
         <button
           onClick={leaveMeeting}
@@ -180,6 +226,7 @@ const PitchPulse = () => {
           )}
         </button>
       )}
+
       <div className="flex flex-col items-center justify-center">
         {!isJoined && (
           <div className="flex flex-col items-center justify-center w-full">
@@ -192,7 +239,7 @@ const PitchPulse = () => {
             />
             <button
               className="text-base bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-xl shadow-sm transition-all duration-200"
-              onClick={() => joinMeeting(meetingUrl)} // pass a function here!
+              onClick={() => joinMeeting(meetingUrl)}
             >
               {isLoading ? (
                 <div className="flex items-center gap-2">
@@ -227,6 +274,7 @@ const PitchPulse = () => {
           </div>
         )}
       </div>
+
       <div className="space-y-2 mb-2">
         <h3 className="text-2xl text-gray-400">Discovery Navigation</h3>
         <MetricsDisplay data={metrics} />

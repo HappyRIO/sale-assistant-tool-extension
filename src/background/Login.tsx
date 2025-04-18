@@ -1,18 +1,44 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Logo from "./Logo";
+import axios from "axios";
 
 const MainPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
+  
   const navigate = useNavigate();
+  
+  const [apiUrl, setApiUrl] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  fetch(chrome.runtime.getURL('config.json'))
+  .then(res => res.json())
+  .then(config => {
+    setApiUrl(config.API_URL);
+    console.log(apiUrl);
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Email:", email);
-    console.log("Password:", password);
-    navigate("/analytics");
+  
+    try {
+      const response = await axios.post(`${apiUrl}/login`, {
+        username: email,
+        password: password,
+      });
+  
+      // Check response
+      if (response.data?.message === "Login successful") {
+        console.log("Login successful");
+        navigate("/analytics");
+      } else {
+        console.error("Invalid credentials");
+        alert("Invalid email or password.");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      alert("An error occurred while trying to log in.");
+    }
   };
 
   return (
