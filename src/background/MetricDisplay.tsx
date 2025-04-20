@@ -6,6 +6,13 @@ interface MetricsProps {
 }
 
 const MetricsDisplay: React.FC<MetricsProps> = ({ data }) => {
+  const getColor = (value: number) => {
+    if (value >= 80) return "bg-green-500";
+    if (value >= 50) return "bg-yellow-500";
+    if (value >= 30) return "bg-orange-500";
+    return "bg-red-500";
+  };
+
   const metrics = [
     { label: "Problem", value: data.scores.problem },
     { label: "Goals", value: data.scores.goals },
@@ -22,17 +29,14 @@ const MetricsDisplay: React.FC<MetricsProps> = ({ data }) => {
       {/* Scores Section */}
       <div className="space-y-1 mb-2">
         {metrics.map((item) => (
-          <div
-            key={item.label}
-            className=" first:border-t first:border-zinc-700"
-          >
+          <div key={item.label} className="first:border-t first:border-zinc-700">
             <div className="flex justify-between items-center mb-1">
               <div className="text-base font-medium">{item.label}</div>
               <div className="text-base font-medium">{item.value}%</div>
             </div>
             <div className="w-full h-2 bg-zinc-700 rounded overflow-hidden">
               <div
-                className="h-full bg-blue-500 rounded transition-all duration-1000 ease-out"
+                className={`h-full rounded transition-all duration-1000 ease-out ${getColor(item.value)}`}
                 style={{ width: `${item.value}%` }}
               />
             </div>

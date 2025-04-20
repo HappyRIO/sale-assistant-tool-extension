@@ -3,6 +3,7 @@ import axios from "axios";
 import { LogOut } from "lucide-react";
 import MetricsDisplay from "./MetricDisplay";
 import Logo from "./Logo";
+// import { useNavigate } from "react-router-dom";
 
 export interface Metrics {
   summary: {
@@ -39,17 +40,22 @@ const initMetrics = {
 };
 
 const PitchPulse = () => {
+  const [token, setToken] = useState(sessionStorage.getItem("token"));
+  // const [message, setMessage] = useState("");
   const [meetingUrl, setMeetingUrl] = useState("");
   const [metrics, setMetrics] = useState<Metrics>(initMetrics);
   const socketRef = useRef<WebSocket | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isJoined, setIsJoined] = useState(false);
-  const [botId, setBotId] = useState("");
+  const [botId, setBotId] = useState(sessionStorage.getItem("botId"));
 
   const [apiUrl, setApiUrl] = useState("");
   const [webSockedUrl, setWebSocketUrl] = useState("");
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+
+  // const navigate = useNavigate();
 
   useEffect(() => {
     fetch(chrome.runtime.getURL("config.json"))
@@ -60,6 +66,25 @@ const PitchPulse = () => {
       });
   }, []);
 
+  useEffect(() => {
+    sessionStorage.getItem("token");
+    console.log(token);
+
+    // if (!token) return;
+    // axios.get(`${apiUrl}/api/auth`, {
+    //   headers: { Authorization: `Bearer ${token}` }
+    // }).then(res => setMessage(res.data.message))
+    //   .catch(err => {
+    //     setMessage("Unauthorized");
+    //     sessionStorage.removeItem("token");
+    //   });
+  }, [token]);
+
+  // if (!token) {
+  //   navigate("/");
+  //   return null;
+  // }
+
   const isValidZoomUrl = (url: string) => {
     const regex = /^https:\/\/([\w.-]+)?zoom\.us\/[jw]\/\d+(\?pwd=[\w.-]+)?$/;
     return regex.test(url);
@@ -67,7 +92,7 @@ const PitchPulse = () => {
 
   const initWebSocket = () => {
     if (!webSockedUrl) return;
-    socketRef.current = new WebSocket(`${webSockedUrl}/ws`);
+    socketRef.current = new WebSocket(`${webSockedUrl}/api/ws`);
 
     socketRef.current.onopen = () => {
       console.log("WebSocket connection established.");
@@ -76,24 +101,36 @@ const PitchPulse = () => {
 
     socketRef.current.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      if (data.event === "bot.call_ended") {
+      const current_botID = sessionStorage.getItem("botId");
+      console.log("Received message:", data.event, data.bot_id, "ID:", current_botID);
+      if (data.event == "bot.call_ended" && data.bot_id == current_botID) {
         setIsLoading(true);
         setIsJoined(false);
         closeWebSocket();
         setTimeout(() => {
           setIsLoading(false);
         }, 1000);
-        console.log("Bot call ended", data.data);
-      } else if (data.event === "transcript.data") {
+        console.log("Bot call ended", data.bot_id);
+      } else if (data.event == "close" && data.bot_id == current_botID) {
+        closeWebSocket();
+        sessionStorage.removeItem("botId");
+        console.log("Bot call started", data.bot_id);
+      } else if (data.event == "transcript.data" && data.bot_id == current_botID) {
         const parsedData = JSON.parse(data.data);
-        console.log("Transcript data:", parsedData);
         setMetrics(parsedData);
-      } else if (data.event === "transcript.processing") {
+        console.log("Analysis data:", data.data);
+      } else if (
+        data.event == "transcript.processing" &&
+        data.bot_id == current_botID
+      ) {
         setIsReady(true);
-        console.log("Bot call started", data.data);
-      } else if (data.event === "bot.in_call_not_recording") {
+        console.log("Bot call started", data.bot_id);
+      } else if (
+        data.event == "bot.in_call_not_recording" &&
+        data.bot_id == current_botID
+      ) {
         setIsReady(false);
-        console.log("Bot in call but not recording", data.data);
+        console.log("Bot in call but not recording", data.bot_id);
       }
     };
 
@@ -113,8 +150,16 @@ const PitchPulse = () => {
   };
 
   const reconnectWebSocket = () => {
-    if (!isSocketConnected && isJoined) {
+    console.log(
+      "Reconnecting WebSocket...\n",
+      !isSocketConnected,
+      isJoined,
+      !isReconnecting
+    );
+    if (!isSocketConnected && isJoined && !isReconnecting) {
+      setIsReconnecting(true);
       initWebSocket();
+      setIsReconnecting(false);
     }
   };
 
@@ -133,10 +178,11 @@ const PitchPulse = () => {
     setMetrics(initMetrics);
 
     axios
-      .post(`${apiUrl}/join-meeting`, { url: meetingUrl })
+      .post(`${apiUrl}/api/join-meeting`, { url: meetingUrl })
       .then((response) => {
-        console.log(response.data);
+        console.log("Join:", response.data.bot_id);
         setBotId(response.data.bot_id);
+        sessionStorage.setItem("botId", response.data.bot_id);
         setIsJoined(true);
         setMeetingUrl("");
         initWebSocket();
@@ -150,12 +196,16 @@ const PitchPulse = () => {
   const leaveMeeting = () => {
     if (isJoined) {
       setIsLoading(true);
+      const current_botID = sessionStorage.getItem("botId");
       axios
-        .post(`${apiUrl}/leave-meeting`, { id: botId })
+        .post(`${apiUrl}/api/leave-meeting`, { id: current_botID })
         .then((response) => {
           console.log(response.data);
-          setIsJoined(false);
-          closeWebSocket();
+          if (current_botID == response.data.bot_id) {
+            setIsJoined(false);
+            closeWebSocket();
+            sessionStorage.removeItem("botId");
+          }
         })
         .catch((error) => console.error(error))
         .finally(() => {
@@ -164,33 +214,51 @@ const PitchPulse = () => {
     }
   };
 
+  console.log("Rerender:", botId, sessionStorage.getItem("botId"));
+
   return (
     <div className="w-full h-full min-h-screen bg-zinc-800 p-4 rounded-xl shadow-lg relative">
       {/* Status Light */}
-      <div
+      {isJoined && <div
         className="absolute top-4 left-4 flex flex-col items-center gap-1 cursor-pointer"
         onClick={reconnectWebSocket}
       >
-        <div
-          className={`w-4 h-4 rounded-full animate-pulse shadow-md ${
-            isSocketConnected
-              ? isReady
-                ? "bg-green-600"
-                : "bg-yellow-400"
-              : "bg-red-600"
-          }`}
-          title={
-            isSocketConnected
-              ? isReady
-                ? "Ready"
-                : "WebSocket Connected"
-              : "WebSocket Disconnected (click to reconnect)"
-          }
-        />
+        {isReconnecting ? (
+          // Spinner when reconnecting
+          <div
+            className="w-4 h-4 border-2 border-t-transparent border-white rounded-full animate-spin"
+            title="Reconnecting..."
+          />
+        ) : (
+          // Colored status light
+          <div
+            className={`w-4 h-4 rounded-full shadow-md ${
+              isSocketConnected
+                ? isReady
+                  ? "bg-green-600"
+                  : "bg-yellow-400"
+                : "bg-red-600"
+            }`}
+            title={
+              isSocketConnected
+                ? isReady
+                  ? "Ready"
+                  : "WebSocket Connected"
+                : "WebSocket Disconnected (click to reconnect)"
+            }
+          />
+        )}
+
         <span className="text-xs text-white">
-          {isSocketConnected ? (isReady ? "Ready" : "Conn.") : "Disc."}
+          {isReconnecting
+            ? "Reconnecting..."
+            : isSocketConnected
+            ? isReady
+              ? "Ready"
+              : "Conn."
+            : "Disc."}
         </span>
-      </div>
+      </div>}
 
       <div className="flex justify-center items-center">
         <Logo />
