@@ -1,4 +1,4 @@
-# Chrome React Sidepanel Extension template with DaisyUI
+# Sales Assistant Tool for Zoom meeting
 Basic Chrome sidepanel extension template
 
 
