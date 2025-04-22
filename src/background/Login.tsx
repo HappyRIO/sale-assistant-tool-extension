@@ -7,6 +7,7 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("yourpassword");
   const [invalid, setInvalid] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const navigate = useNavigate();
 
@@ -21,6 +22,7 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
 
     try {
       const response = await axios.post(
@@ -37,19 +39,22 @@ const Login = () => {
       );
 
       // Check response
-      console.log("response", response)
+      console.log("response", response);
       const token = response.data?.access_token;
       if (token) {
+        setIsLoading(false);
         localStorage.setItem("token", token);
         navigate("/analytics");
         console.log("Login successful");
       } else {
-        console.error("Invalid credentials");
+        setIsLoading(false);
         setInvalid(true);
+        console.error("Invalid credentials");
       }
     } catch (error) {
-      console.error("Login error:", error);
+      setIsLoading(false);
       setInvalid(true);
+      console.error("Login error:", error);
     }
   };
 
@@ -96,9 +101,42 @@ const Login = () => {
 
         <button
           type="submit"
-          className="w-full py-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-500 hover:opacity-90 font-semibold"
+          className="w-full py-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-500 hover:opacity-90 font-semibold flex items-center justify-center disabled:opacity-70"
+          disabled={isLoading}
         >
-          Log in
+          {isLoading ? (
+            <svg
+              className="animate-spin h-6 w-6"
+              viewBox="0 0 50 50"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <defs>
+                <linearGradient
+                  id="spinnerGradient"
+                  x1="1"
+                  y1="0"
+                  x2="0"
+                  y2="0"
+                >
+                  <stop offset="0%" stopColor="#ffffff" stopOpacity="0.3" />
+                  <stop offset="100%" stopColor="#ffffff" stopOpacity="1" />
+                </linearGradient>
+              </defs>
+              <circle
+                cx="25"
+                cy="25"
+                r="20"
+                fill="none"
+                stroke="url(#spinnerGradient)"
+                strokeWidth="5"
+                strokeLinecap="round"
+                strokeDasharray="100"
+                strokeDashoffset="25"
+              />
+            </svg>
+          ) : (
+            "Log in"
+          )}
         </button>
       </form>
 

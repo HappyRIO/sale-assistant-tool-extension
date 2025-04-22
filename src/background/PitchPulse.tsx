@@ -3,7 +3,7 @@ import axios from "axios";
 import { LogOut } from "lucide-react";
 import MetricsDisplay from "./MetricDisplay";
 import Logo from "./Logo";
-// import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 export interface Metrics {
   summary: {
@@ -40,14 +40,14 @@ const initMetrics = {
 };
 
 const PitchPulse = () => {
-  const [token, setToken] = useState(sessionStorage.getItem("token"));
-  // const [message, setMessage] = useState("");
+  const [token, setToken] = useState(localStorage.getItem("token"));
+  const [message, setMessage] = useState("");
   const [meetingUrl, setMeetingUrl] = useState("");
   const [metrics, setMetrics] = useState<Metrics>(initMetrics);
   const socketRef = useRef<WebSocket | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isJoined, setIsJoined] = useState(false);
-  const [botId, setBotId] = useState(sessionStorage.getItem("botId"));
+  const [botId, setBotId] = useState(localStorage.getItem("botId"));
 
   const [apiUrl, setApiUrl] = useState("");
   const [webSockedUrl, setWebSocketUrl] = useState("");
@@ -55,7 +55,14 @@ const PitchPulse = () => {
   const [isReady, setIsReady] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
 
-  // const navigate = useNavigate();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!token) {
+      console.log("1...token", token);
+      navigate("/");
+    }
+  }, [navigate]);
 
   useEffect(() => {
     fetch(chrome.runtime.getURL("config.json"))
@@ -67,23 +74,35 @@ const PitchPulse = () => {
   }, []);
 
   useEffect(() => {
-    sessionStorage.getItem("token");
-    console.log(token);
+    const storedToken = localStorage.getItem("token");
+    console.log("token", storedToken);
+    setToken(storedToken);
+  
+    if (!storedToken) {
+      navigate("/");
+      return;
+    }
+  
+    fetch(chrome.runtime.getURL("config.json"))
+      .then((res) => res.json())
+      .then((config) => {
+        axios
+          .get(`${config.API_URL}/api/protected`, {
+            headers: { Authorization: `Bearer ${storedToken}` },
+          })
+          .then((res) => {
+            setMessage(res.data.message);
+            console.log("message", res.data.message);
+            console.log("res", res);
+          })
+          .catch(() => {
+            setMessage("Unauthorized");
+            localStorage.removeItem("token");
+          });
+      });
+  }, []);
 
-    // if (!token) return;
-    // axios.get(`${apiUrl}/api/auth`, {
-    //   headers: { Authorization: `Bearer ${token}` }
-    // }).then(res => setMessage(res.data.message))
-    //   .catch(err => {
-    //     setMessage("Unauthorized");
-    //     sessionStorage.removeItem("token");
-    //   });
-  }, [token]);
-
-  // if (!token) {
-  //   navigate("/");
-  //   return null;
-  // }
+  console.log("token...", token);
 
   const isValidZoomUrl = (url: string) => {
     const regex = /^https:\/\/([\w.-]+)?zoom\.us\/[jw]\/\d+(\?pwd=[\w.-]+)?$/;
@@ -101,8 +120,14 @@ const PitchPulse = () => {
 
     socketRef.current.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      const current_botID = sessionStorage.getItem("botId");
-      console.log("Received message:", data.event, data.bot_id, "ID:", current_botID);
+      const current_botID = localStorage.getItem("botId");
+      console.log(
+        "Received message:",
+        data.event,
+        data.bot_id,
+        "ID:",
+        current_botID
+      );
       if (data.event == "bot.call_ended" && data.bot_id == current_botID) {
         setIsLoading(true);
         setIsJoined(false);
@@ -113,9 +138,12 @@ const PitchPulse = () => {
         console.log("Bot call ended", data.bot_id);
       } else if (data.event == "close" && data.bot_id == current_botID) {
         closeWebSocket();
-        sessionStorage.removeItem("botId");
+        localStorage.removeItem("botId");
         console.log("Bot call started", data.bot_id);
-      } else if (data.event == "transcript.data" && data.bot_id == current_botID) {
+      } else if (
+        data.event == "transcript.data" &&
+        data.bot_id == current_botID
+      ) {
         const parsedData = JSON.parse(data.data);
         setMetrics(parsedData);
         console.log("Analysis data:", data.data);
@@ -131,6 +159,11 @@ const PitchPulse = () => {
       ) {
         setIsReady(false);
         console.log("Bot in call but not recording", data.bot_id);
+      } else if (data.event == "bot.fatal" && data.bot_id == current_botID) {
+        setIsJoined(false);
+        closeWebSocket();
+        localStorage.removeItem("botId");
+        console.log("Bot fatal error", data.bot_id);
       }
     };
 
@@ -157,6 +190,7 @@ const PitchPulse = () => {
       !isReconnecting
     );
     if (!isSocketConnected && isJoined && !isReconnecting) {
+      setIsLoading(true);
       setIsReconnecting(true);
       initWebSocket();
       setIsReconnecting(false);
@@ -182,7 +216,7 @@ const PitchPulse = () => {
       .then((response) => {
         console.log("Join:", response.data.bot_id);
         setBotId(response.data.bot_id);
-        sessionStorage.setItem("botId", response.data.bot_id);
+        localStorage.setItem("botId", response.data.bot_id);
         setIsJoined(true);
         setMeetingUrl("");
         initWebSocket();
@@ -196,7 +230,7 @@ const PitchPulse = () => {
   const leaveMeeting = () => {
     if (isJoined) {
       setIsLoading(true);
-      const current_botID = sessionStorage.getItem("botId");
+      const current_botID = localStorage.getItem("botId");
       axios
         .post(`${apiUrl}/api/leave-meeting`, { id: current_botID })
         .then((response) => {
@@ -204,7 +238,7 @@ const PitchPulse = () => {
           if (current_botID == response.data.bot_id) {
             setIsJoined(false);
             closeWebSocket();
-            sessionStorage.removeItem("botId");
+            localStorage.removeItem("botId");
           }
         })
         .catch((error) => console.error(error))
@@ -214,51 +248,53 @@ const PitchPulse = () => {
     }
   };
 
-  console.log("Rerender:", botId, sessionStorage.getItem("botId"));
+  console.log("Rerender:", botId, localStorage.getItem("botId"));
 
   return (
     <div className="w-full h-full min-h-screen bg-zinc-800 p-4 rounded-xl shadow-lg relative">
       {/* Status Light */}
-      {isJoined && <div
-        className="absolute top-4 left-4 flex flex-col items-center gap-1 cursor-pointer"
-        onClick={reconnectWebSocket}
-      >
-        {isReconnecting ? (
-          // Spinner when reconnecting
-          <div
-            className="w-4 h-4 border-2 border-t-transparent border-white rounded-full animate-spin"
-            title="Reconnecting..."
-          />
-        ) : (
-          // Colored status light
-          <div
-            className={`w-4 h-4 rounded-full shadow-md ${
-              isSocketConnected
-                ? isReady
-                  ? "bg-green-600"
-                  : "bg-yellow-400"
-                : "bg-red-600"
-            }`}
-            title={
-              isSocketConnected
-                ? isReady
-                  ? "Ready"
-                  : "WebSocket Connected"
-                : "WebSocket Disconnected (click to reconnect)"
-            }
-          />
-        )}
+      {isJoined && (
+        <div
+          className="absolute top-4 left-4 flex flex-col items-center gap-1 cursor-pointer"
+          onClick={reconnectWebSocket}
+        >
+          {isReconnecting ? (
+            // Spinner when reconnecting
+            <div
+              className="w-4 h-4 border-2 border-t-transparent border-white rounded-full animate-spin"
+              title="Reconnecting..."
+            />
+          ) : (
+            // Colored status light
+            <div
+              className={`w-4 h-4 rounded-full shadow-md ${
+                isSocketConnected
+                  ? isReady
+                    ? "bg-green-600"
+                    : "bg-yellow-400"
+                  : "bg-red-600"
+              }`}
+              title={
+                isSocketConnected
+                  ? isReady
+                    ? "Ready"
+                    : "WebSocket Connected"
+                  : "WebSocket Disconnected (click to reconnect)"
+              }
+            />
+          )}
 
-        <span className="text-xs text-white">
-          {isReconnecting
-            ? "Reconnecting..."
-            : isSocketConnected
-            ? isReady
-              ? "Ready"
-              : "Conn."
-            : "Disc."}
-        </span>
-      </div>}
+          <span className="text-xs text-white">
+            {isReconnecting
+              ? "Reconnecting..."
+              : isSocketConnected
+              ? isReady
+                ? "Ready"
+                : "Conn."
+              : "Disc."}
+          </span>
+        </div>
+      )}
 
       <div className="flex justify-center items-center">
         <Logo />
