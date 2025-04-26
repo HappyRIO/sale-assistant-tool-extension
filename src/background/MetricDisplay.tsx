@@ -1,18 +1,72 @@
-import React from "react";
+import React, { FC } from "react";
+import { motion } from "framer-motion";
 import { Metrics } from "./PitchPulse";
 
 interface MetricsProps {
   data: Metrics;
 }
 
-const MetricsDisplay: React.FC<MetricsProps> = ({ data }) => {
-  const getColor = (value: number) => {
-    if (value >= 80) return "bg-green-500";
-    if (value >= 50) return "bg-yellow-500";
-    if (value >= 30) return "bg-orange-500";
-    return "bg-red-500";
+interface MetricBarProps {
+  name: string;
+  percentage: number;
+}
+
+const MetricBar: FC<MetricBarProps> = ({ name, percentage }) => {
+  const getProgressClass = () => {
+    if (percentage === 0) {
+      return {
+        bar: "bg-gray-700",
+        nameColor: "text-gray-400",
+        percentColor: "text-gray-500",
+      };
+    } else if (percentage <= 33) {
+      return {
+        bar: "bg-gradient-to-r from-red-600 to-red-500 shadow-[0_0_8px_rgba(220,38,38,0.5)]",
+        nameColor: "text-gray-300",
+        percentColor: "text-red-500",
+      };
+    } else if (percentage <= 66) {
+      return {
+        bar: "bg-gradient-to-r from-amber-600 to-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]",
+        nameColor: "text-gray-300",
+        percentColor: "text-amber-500",
+      };
+    } else {
+      return {
+        bar: "bg-gradient-to-r from-emerald-600 to-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.5)]",
+        nameColor: "text-gray-300",
+        percentColor: "text-emerald-500",
+      };
+    }
   };
 
+  const classes = getProgressClass();
+
+  return (
+    <div className="mb-5">
+      <div className="flex justify-between items-center mb-1.5">
+        <div
+          className={`text-sm font-medium tracking-wide ${classes.nameColor}`}
+        >
+          {name}
+        </div>
+        <div className={`text-xs font-medium ${classes.percentColor}`}>
+          {percentage}%
+        </div>
+      </div>
+      <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+        <motion.div
+          className={`h-full ${classes.bar}`}
+          initial={{ width: 0 }}
+          animate={{ width: `${percentage}%` }}
+          transition={{ duration: 1, ease: "easeOut" }}
+        />
+      </div>
+    </div>
+  );
+};
+
+const MetricsDisplay: FC<MetricsProps> = ({ data }) => {
   const metrics = [
     { label: "Problem", value: data.scores.problem },
     { label: "Goals", value: data.scores.goals },
@@ -26,43 +80,79 @@ const MetricsDisplay: React.FC<MetricsProps> = ({ data }) => {
 
   return (
     <div className="text-white">
-      {/* Scores Section */}
-      <div className="space-y-1 mb-2">
+      {/* Score Bars */}
+      <div className="mb-6">
         {metrics.map((item) => (
-          <div key={item.label} className="first:border-t first:border-zinc-700">
-            <div className="flex justify-between items-center mb-1">
-              <div className="text-base font-medium">{item.label}</div>
-              <div className="text-base font-medium">{item.value}%</div>
-            </div>
-            <div className="w-full h-2 bg-zinc-700 rounded overflow-hidden">
-              <div
-                className={`h-full rounded transition-all duration-1000 ease-out ${getColor(item.value)}`}
-                style={{ width: `${item.value}%` }}
-              />
-            </div>
-          </div>
+          <MetricBar
+            key={item.label}
+            name={item.label}
+            percentage={item.value}
+          />
         ))}
       </div>
 
-      {/* Summary Section */}
-      <div className="border-t border-zinc-700 pt-1">
-        <h3 className="font-semibold text-xl mb-2">Pitch Assist</h3>
-        <p className="text-base text-gray-300">
-          <strong>Problem:</strong> {data.summary.problem}
-        </p>
-        <p className="text-base text-gray-300">
-          <strong>Urgency:</strong> {data.summary.urgency}
-        </p>
-        <p className="text-base text-gray-300">
-          <strong>Goals:</strong> {data.summary.goals}
-        </p>
-        <p className="text-base text-gray-300">
-          <strong>Solution Awareness:</strong> {data.summary.solution_awareness}
-        </p>
-        <p className="text-base text-gray-300">
-          <strong>Financial Qualification:</strong>{" "}
-          {data.summary.financial_qualification}
-        </p>
+      {/* Pitch Assist Summary */}
+      <div className="border-t border-zinc-700 pt-4">
+        <h3 className="text-sm font-semibold text-white mb-4 tracking-wide">
+          Pitch Assist
+        </h3>
+        <div className="space-y-4 text-sm text-gray-300">
+          <div>
+            <p className="text-white text-sm mb-1.5 tracking-wide">
+              Problem:
+            </p>
+            <p
+              className="text-[13px] text-gray-400 leading-relaxed"
+              style={{ lineHeight: 1.6 }}
+            >
+              {data.summary.problem}
+            </p>
+          </div>
+          <div>
+            <p className="text-white text-sm mb-1.5 tracking-wide">
+              Goals:
+            </p>
+            <p
+              className="text-[13px] text-gray-400 leading-relaxed"
+              style={{ lineHeight: 1.6 }}
+            >
+              {data.summary.goals}
+            </p>
+          </div>
+          <div>
+            <p className="text-white text-sm mb-1.5 tracking-wide">
+              Urgency:
+            </p>
+            <p
+              className="text-[13px] text-gray-400 leading-relaxed"
+              style={{ lineHeight: 1.6 }}
+            >
+              {data.summary.urgency}
+            </p>
+          </div>
+          <div>
+            <p className="text-white text-sm mb-1.5 tracking-wide">
+              Solution Awareness:
+            </p>
+            <p
+              className="text-[13px] text-gray-400 leading-relaxed"
+              style={{ lineHeight: 1.6 }}
+            >
+              {data.summary.solution_awareness}
+            </p>
+          </div>
+          <div>
+            <p className="text-white text-sm mb-1.5 tracking-wide">
+              Financial Qualification:
+            </p>
+            <p
+              className="text-[13px] text-gray-400 leading-relaxed"
+              style={{ lineHeight: 1.6 }}
+            >
+              {data.summary.financial_qualification}
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

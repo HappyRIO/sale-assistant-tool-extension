@@ -24,6 +24,9 @@ const Login = () => {
     e.preventDefault();
     setIsLoading(true);
 
+    console.log("apiUrl", apiUrl);
+
+
     try {
       const response = await axios.post(
         `${apiUrl}/api/login`,
@@ -59,12 +62,12 @@ const Login = () => {
   };
 
   return (
-    <div className="w-full h-screen max-w-sm1 mx-auto p-6 bg-[#0D0F1A] text-white rounded-2xl shadow-xl">
-      <div className="flex items-center justify-center mb-6">
+    <div className="w-full h-screen  mx-auto p-6 bg-slate-950 text-white rounded-2xl shadow-xl">
+      <div className="p-3 border-b border-gray-800 flex items-center">
         <Logo />
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4 mt-4">
         <div>
           <label className="block text-sm mb-1" htmlFor="email">
             Email Address

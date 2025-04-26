@@ -59,7 +59,6 @@ const PitchPulse = () => {
 
   useEffect(() => {
     if (!token) {
-      console.log("1...token", token);
       navigate("/");
     }
   }, [navigate]);
@@ -77,12 +76,12 @@ const PitchPulse = () => {
     const storedToken = localStorage.getItem("token");
     console.log("token", storedToken);
     setToken(storedToken);
-  
+
     if (!storedToken) {
       navigate("/");
       return;
     }
-  
+
     fetch(chrome.runtime.getURL("config.json"))
       .then((res) => res.json())
       .then((config) => {
@@ -92,8 +91,6 @@ const PitchPulse = () => {
           })
           .then((res) => {
             setMessage(res.data.message);
-            console.log("message", res.data.message);
-            console.log("res", res);
           })
           .catch(() => {
             setMessage("Unauthorized");
@@ -102,10 +99,13 @@ const PitchPulse = () => {
       });
   }, []);
 
-  console.log("token...", token);
-
   const isValidZoomUrl = (url: string) => {
     const regex = /^https:\/\/([\w.-]+)?zoom\.us\/[jw]\/\d+(\?pwd=[\w.-]+)?$/;
+    return regex.test(url);
+  };
+
+  const isValidGoogleMeetUrl = (url: string): boolean => {
+    const regex = /^https:\/\/meet\.google\.com\/[a-z]{3}-[a-z]{4}-[a-z]{3}$/;
     return regex.test(url);
   };
 
@@ -121,16 +121,10 @@ const PitchPulse = () => {
     socketRef.current.onmessage = (event) => {
       const data = JSON.parse(event.data);
       const current_botID = localStorage.getItem("botId");
-      console.log(
-        "Received message:",
-        data.event,
-        data.bot_id,
-        "ID:",
-        current_botID
-      );
       if (data.event == "bot.call_ended" && data.bot_id == current_botID) {
         setIsLoading(true);
         setIsJoined(false);
+        setIsReady(false);
         closeWebSocket();
         setTimeout(() => {
           setIsLoading(false);
@@ -183,17 +177,12 @@ const PitchPulse = () => {
   };
 
   const reconnectWebSocket = () => {
-    console.log(
-      "Reconnecting WebSocket...\n",
-      !isSocketConnected,
-      isJoined,
-      !isReconnecting
-    );
     if (!isSocketConnected && isJoined && !isReconnecting) {
       setIsLoading(true);
       setIsReconnecting(true);
       initWebSocket();
       setIsReconnecting(false);
+      setIsLoading(false);
     }
   };
 
@@ -203,8 +192,8 @@ const PitchPulse = () => {
       return;
     }
 
-    if (!isValidZoomUrl(meetingUrl)) {
-      alert("Please enter a valid Zoom meeting URL.");
+    if (!isValidZoomUrl(meetingUrl) && !isValidGoogleMeetUrl(meetingUrl)) {
+      alert("Please enter a valid meeting Link.");
       return;
     }
 
@@ -212,9 +201,18 @@ const PitchPulse = () => {
     setMetrics(initMetrics);
 
     axios
-      .post(`${apiUrl}/api/join-meeting`, { url: meetingUrl })
+      .post(
+        `${apiUrl}/api/join-meeting`,
+        { url: meetingUrl },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+        }
+      )
       .then((response) => {
-        console.log("Join:", response.data.bot_id);
         setBotId(response.data.bot_id);
         localStorage.setItem("botId", response.data.bot_id);
         setIsJoined(true);
@@ -237,6 +235,7 @@ const PitchPulse = () => {
           console.log(response.data);
           if (current_botID == response.data.bot_id) {
             setIsJoined(false);
+            setIsReady(false);
             closeWebSocket();
             localStorage.removeItem("botId");
           }
@@ -248,14 +247,12 @@ const PitchPulse = () => {
     }
   };
 
-  console.log("Rerender:", botId, localStorage.getItem("botId"));
-
   return (
-    <div className="w-full h-full min-h-screen bg-zinc-800 p-4 rounded-xl shadow-lg relative">
+    <div className="w-full h-full min-h-screen bg-slate-950 p-4 rounded-xl shadow-lg relative">
       {/* Status Light */}
       {isJoined && (
         <div
-          className="absolute top-4 left-4 flex flex-col items-center gap-1 cursor-pointer"
+          className="absolute top-5 right-20 flex flex-col items-center gap-1 cursor-pointer"
           onClick={reconnectWebSocket}
         >
           {isReconnecting ? (
@@ -296,7 +293,7 @@ const PitchPulse = () => {
         </div>
       )}
 
-      <div className="flex justify-center items-center">
+      <div className="p-3 border-b border-gray-800 flex items-center">
         <Logo />
       </div>
 
@@ -334,15 +331,17 @@ const PitchPulse = () => {
       <div className="flex flex-col items-center justify-center">
         {!isJoined && (
           <div className="flex flex-col items-center justify-center w-full">
-            <div className="p-2 text-xl self-start">Zoom Meeting URL</div>
+            <div className="text-sm font-semibold text-white p-2 tracking-wide self-start">
+              Meeting Link
+            </div>
             <input
               type="text"
               value={meetingUrl}
               onChange={(e) => setMeetingUrl(e.target.value)}
-              className="text-sm p-2 w-full bg-zinc-700 rounded-lg mb-2 text-white"
+              className="text-sm p-2 w-full bg-zinc-700 rounded-lg mb-2 text-white outline-none"
             />
             <button
-              className="text-base bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-xl shadow-sm transition-all duration-200"
+              className=" py-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-500 hover:opacity-90 font-semibold flex items-center justify-center disabled:opacity-70 text-sm text-white mb-4 tracking-wide px-4 shadow-sm transition-all duration-200"
               onClick={() => joinMeeting(meetingUrl)}
             >
               {isLoading ? (
@@ -380,7 +379,9 @@ const PitchPulse = () => {
       </div>
 
       <div className="space-y-2 mb-2">
-        <h3 className="text-2xl text-gray-400">Discovery Navigation</h3>
+        <h3 className="text-sm font-semibold text-white my-4 tracking-wide">
+          Discovery Navigator
+        </h3>
         <MetricsDisplay data={metrics} />
       </div>
     </div>

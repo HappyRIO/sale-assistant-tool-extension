@@ -1,15 +1,10 @@
 {
-  "name": "Sales Assistant Tool Extension",
+  "name": "PitchPulse",
   "description": "Base Sidepanel Chrome extension that uses react and DaisyUI",
   "version": "1.0",
   "manifest_version": 3,
   "permissions": ["tabs", "tabCapture", "sidePanel", "activeTab", "scripting"],
   "host_permissions": ["<all_urls>"],
-  "action": {
-    "default_popup": "popup.html",
-    "default_title": "Basic Sidepanel Extension",
-    "default_icon": "icon.png"
-  },
   "side_panel": {
     "default_path": "sidepanel.html"
   },
